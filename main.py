@@ -1,8 +1,10 @@
 import math
-from PIL import Image
 import os
-from os.path import isfile, join
 import shutil
+
+from PIL import Image
+from os.path import isfile, join
+
 
 TEST_DIR = 'tests'
 OUTPUT_DIR = 'output'
