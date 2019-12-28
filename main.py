@@ -9,7 +9,7 @@ from os.path import isfile, join
 TEST_DIR = 'tests'
 OUTPUT_DIR = 'output'
 PALLETE_STEP = 50
-EXPAND_DEVIATION = 100
+EXPAND_DEVIATION = 50
 color_pallete = []
 
 
