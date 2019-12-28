@@ -2,12 +2,14 @@ import math
 import os
 import shutil
 
-from PIL import Image
+from PIL import Image, ImageEnhance
 from os.path import isfile, join
 
 
 TEST_DIR = 'tests'
 OUTPUT_DIR = 'output'
+PALLETE_STEP = 50
+color_pallete = []
 
 
 class SobelFilter(object):
@@ -52,7 +54,44 @@ class SobelFilter(object):
         return new_image
 
 
+def combine_images(background, overlay):
+    background = background.convert("RGBA")
+    overlay = overlay.convert("RGBA")
+
+    return Image.blend(background, overlay, 0.3)
+
+
+def get_distance(pixel1, pixel2):
+    return math.sqrt((pixel1[0] - pixel2[0]) ** 2 + (pixel1[1] - pixel2[1]) ** 2 + (pixel1[2] - pixel2[2]) ** 2)
+
+
+def get_intervals():
+    global color_pallete
+    for i in range(0, 255, PALLETE_STEP):
+        for j in range(0, 255, PALLETE_STEP):
+            for k in range(0, 255, PALLETE_STEP):
+                color_pallete.append((i + int(PALLETE_STEP / 2), j + int(PALLETE_STEP / 2), k + int(PALLETE_STEP / 2)))
+
+
+def interval_reduce(image):
+    for i in range(image.size[0]):
+        for j in range(image.size[1]):
+            min_color, min_dist = None, 255
+            for color in color_pallete:
+                dist = get_distance(color, image.getpixel((i, j)))
+                if dist < min_dist:
+                    min_dist = dist
+                    min_color = color
+
+            image.putpixel((i, j), min_color)
+
+    return image
+
+
 def main():
+    get_intervals()
+    print(len(color_pallete))
+
     if os.path.exists(OUTPUT_DIR):
         shutil.rmtree(OUTPUT_DIR)
 
@@ -63,9 +102,26 @@ def main():
     for file_name in test_files:
         print('Processing: ' + '/'.join([TEST_DIR, file_name]))
         image = Image.open(join(TEST_DIR, file_name))  # Can be many different formats.
+
+        # apply the Sobel filter
         new_image = SobelFilter(image).apply_filter()
-        new_image.save('/'.join([OUTPUT_DIR, file_name]))
+
+        # combine the edge image and the original one
+        combined = combine_images(new_image, image)
+
+        enhancer = ImageEnhance.Brightness(combined)
+        enhanced_im = enhancer.enhance(3)
+
+        reduce = ''
+        while reduce not in ('I', 'i', 'E', 'e'):
+            reduce = input('Reduce color pallete (I/E): ')
+
+        if reduce in ('I', 'i'):
+            image = interval_reduce(enhanced_im)
+            print('Done applying reduce')
+            image.save('/'.join([OUTPUT_DIR, file_name]))
+        break
 
 
-if __name__== "__main__":
+if __name__ == "__main__":
     main()
