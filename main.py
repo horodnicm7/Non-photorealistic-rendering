@@ -9,6 +9,7 @@ from os.path import isfile, join
 TEST_DIR = 'tests'
 OUTPUT_DIR = 'output'
 PALLETE_STEP = 50
+EXPAND_DEVIATION = 100
 color_pallete = []
 
 
@@ -88,6 +89,61 @@ def interval_reduce(image):
     return image
 
 
+def segmentation_reduce(image):
+    step4 = [(-1, 0), (0, 1), (1, 0), (0, -1)]
+    step8 = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+    step = step4
+
+    image_map = [[0 for _ in range(image.size[1])] for _ in range(image.size[0])]
+    index = 0
+    pixel_mapping = dict()
+
+    for i in range(image.size[0]):
+        for j in range(image.size[1]):
+            if image_map[i][j]:
+                continue
+
+            index += 1
+            queue = [(i, j)]
+
+            while queue:
+                position = queue.pop()
+
+                if image_map[position[0]][position[1]]:
+                    continue
+
+                image_map[position[0]][position[1]] = index
+                if index not in pixel_mapping:
+                    pixel_mapping[index] = [image.getpixel(position), 1]
+                else:
+                    this_pixel = image.getpixel(position)
+                    r = pixel_mapping[index][0][0] + this_pixel[0]
+                    g = pixel_mapping[index][0][1] + this_pixel[1]
+                    b = pixel_mapping[index][0][2] + this_pixel[2]
+                    pixel_mapping[index][0] = (r, g, b)
+                    pixel_mapping[index][1] += 1
+
+                for direction in step:
+                    new_pixel = (position[0] + direction[0], position[1] + direction[1])
+                    if 0 <= new_pixel[0] < image.size[0] and 0 <= new_pixel[1] < image.size[1]:
+                        if image_map[new_pixel[0]][new_pixel[1]]:
+                            continue
+
+                        if get_distance(image.getpixel(new_pixel), image.getpixel((i, j))) <= EXPAND_DEVIATION:
+                            queue.append(new_pixel)
+
+    for key, value in pixel_mapping.items():
+        pixel_mapping[key] = (int(value[0][0] / value[1]),
+                              int(value[0][1] / value[1]),
+                              int(value[0][2] / value[1]))
+
+    for i in range(image.size[0]):
+        for j in range(image.size[1]):
+            image.putpixel((i, j), pixel_mapping[image_map[i][j]])
+
+    return image
+
+
 def main():
     get_intervals()
     print(len(color_pallete))
@@ -118,9 +174,11 @@ def main():
 
         if reduce in ('I', 'i'):
             image = interval_reduce(enhanced_im)
-            print('Done applying reduce')
-            image.save('/'.join([OUTPUT_DIR, file_name]))
-        break
+        else:
+            image = segmentation_reduce(enhanced_im)
+
+        print('Done applying reduce')
+        image.save('/'.join([OUTPUT_DIR, file_name]))
 
 
 if __name__ == "__main__":
