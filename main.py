@@ -190,9 +190,6 @@ def zoom_edges(image):
 
 
 def main():
-    get_intervals()
-    print('[INFO] Got {} color intervals.'.format(len(color_pallete)))
-
     if os.path.exists(OUTPUT_DIR):
         shutil.rmtree(OUTPUT_DIR)
 
@@ -220,6 +217,8 @@ def main():
         reduce = input('Reduce color pallete (I/E): ')
 
     if reduce in ('I', 'i'):
+        get_intervals()
+        print('[INFO] Got {} color intervals.'.format(len(color_pallete)))
         image = interval_reduce(combined)
     else:
         image = segmentation_reduce(combined)
