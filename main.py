@@ -117,7 +117,6 @@ def interval_reduce(image):
 
 def segmentation_reduce(image):
     step4 = [(-1, 0), (0, 1), (1, 0), (0, -1)]
-    step8 = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
     step = step4
 
     image_map = [[0 for _ in range(image.size[1])] for _ in range(image.size[0])]
@@ -175,11 +174,13 @@ def zoom_edges(image):
         for j in range(image.size[1]):
             pixel = image.getpixel((i, j))
             if pixel[0] == 255:
+                # vertical expand
                 for k in range(i, i - args.edge, -1):
                     if k < 0:
                         break
                     image.putpixel((k, j), (255, 255, 255))
 
+                # horizontal expand
                 for k in range(j, j - args.edge, -1):
                     if k < 0:
                         break
@@ -202,14 +203,15 @@ def main():
 
     file_name = os.path.basename(args.file)
 
-    # apply the Sobel filter
+    # apply the Sobel filter and get a binary edge image
     edges = SobelFilter(image).apply_filter()
     edges.save('/'.join([OUTPUT_DIR, 'edges_' + file_name]))
 
+    # zoom edges
     edges = zoom_edges(edges)
     edges.save('/'.join([OUTPUT_DIR, 'zoomed_edges_' + file_name]))
 
-    # combine the edge image and the original one
+    # combine the edges image with the original one
     combined = overlay_images(edges, image)
     combined.save('/'.join([OUTPUT_DIR, 'combined_' + file_name]))
 
