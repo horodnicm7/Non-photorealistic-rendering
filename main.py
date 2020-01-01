@@ -4,20 +4,23 @@ import os
 import shutil
 
 from PIL import Image
-from os.path import isfile, join
 
 parser = argparse.ArgumentParser(description='Cartoonifier')
 parser.add_argument('-e', '--edge', type=int, default=3, required=False,
                     help='Edge width')
 parser.add_argument('-t', '--threshold', type=int, default=10, required=False,
                     help='Threshold for edge filter')
+parser.add_argument('-f', '--file', type=str, required=True,
+                    help='Path to file')
+parser.add_argument('-p', '--palette', type=int, required=False, default=50,
+                    help='The palette step')
+parser.add_argument('-d', '--deviation', type=int, required=False, default=50,
+                    help='The color expand allowed deviation')
 args = parser.parse_args()
 
 
 TEST_DIR = 'tests'
 OUTPUT_DIR = 'output'
-PALLETE_STEP = 50
-EXPAND_DEVIATION = 50
 color_pallete = []
 
 
@@ -88,10 +91,13 @@ def get_distance(pixel1, pixel2):
 
 def get_intervals():
     global color_pallete
-    for i in range(0, 255, PALLETE_STEP):
-        for j in range(0, 255, PALLETE_STEP):
-            for k in range(0, 255, PALLETE_STEP):
-                color_pallete.append((i + int(PALLETE_STEP / 2), j + int(PALLETE_STEP / 2), k + int(PALLETE_STEP / 2)))
+    for i in range(0, 255, args.palette):
+        for j in range(0, 255, args.palette):
+            for k in range(0, 255, args.palette):
+                color_pallete.append((i + int(args.palette / 2),
+                                      j + int(args.palette / 2),
+                                      k + int(args.palette / 2)
+                                      ))
 
 
 def interval_reduce(image):
@@ -149,7 +155,7 @@ def segmentation_reduce(image):
                         if image_map[new_pixel[0]][new_pixel[1]]:
                             continue
 
-                        if get_distance(image.getpixel(new_pixel), image.getpixel((i, j))) <= EXPAND_DEVIATION:
+                        if get_distance(image.getpixel(new_pixel), image.getpixel((i, j))) <= args.deviation:
                             queue.append(new_pixel)
 
     for key, value in pixel_mapping.items():
@@ -184,41 +190,40 @@ def zoom_edges(image):
 
 def main():
     get_intervals()
-    print(len(color_pallete))
+    print('[INFO] Got {} color intervals.'.format(len(color_pallete)))
 
     if os.path.exists(OUTPUT_DIR):
         shutil.rmtree(OUTPUT_DIR)
 
     os.mkdir(OUTPUT_DIR)
 
-    test_files = [f for f in os.listdir(TEST_DIR) if isfile(join(TEST_DIR, f))]
+    print('Processing: ' + args.file)
+    image = Image.open(args.file)  # Can be many different formats.
 
-    for file_name in test_files:
-        print('Processing: ' + '/'.join([TEST_DIR, file_name]))
-        image = Image.open(join(TEST_DIR, file_name))  # Can be many different formats.
+    file_name = os.path.basename(args.file)
 
-        # apply the Sobel filter
-        edges = SobelFilter(image).apply_filter()
-        edges.save('/'.join([OUTPUT_DIR, 'edges_' + file_name]))
+    # apply the Sobel filter
+    edges = SobelFilter(image).apply_filter()
+    edges.save('/'.join([OUTPUT_DIR, 'edges_' + file_name]))
 
-        edges = zoom_edges(edges)
-        edges.save('/'.join([OUTPUT_DIR, 'zoomed_edges_' + file_name]))
+    edges = zoom_edges(edges)
+    edges.save('/'.join([OUTPUT_DIR, 'zoomed_edges_' + file_name]))
 
-        # combine the edge image and the original one
-        combined = overlay_images(edges, image)
-        combined.save('/'.join([OUTPUT_DIR, 'combined_' + file_name]))
+    # combine the edge image and the original one
+    combined = overlay_images(edges, image)
+    combined.save('/'.join([OUTPUT_DIR, 'combined_' + file_name]))
 
-        reduce = ''
-        while reduce not in ('I', 'i', 'E', 'e'):
-            reduce = input('Reduce color pallete (I/E): ')
+    reduce = ''
+    while reduce not in ('I', 'i', 'E', 'e'):
+        reduce = input('Reduce color pallete (I/E): ')
 
-        if reduce in ('I', 'i'):
-            image = interval_reduce(combined)
-        else:
-            image = segmentation_reduce(combined)
+    if reduce in ('I', 'i'):
+        image = interval_reduce(combined)
+    else:
+        image = segmentation_reduce(combined)
 
-        print('Done applying reduce')
-        image.save('/'.join([OUTPUT_DIR, file_name]))
+    print('[INFO] Done applying reduce')
+    image.save('/'.join([OUTPUT_DIR, file_name]))
 
 
 if __name__ == "__main__":
