@@ -1,9 +1,17 @@
+import argparse
 import math
 import os
 import shutil
 
-from PIL import Image, ImageEnhance
+from PIL import Image
 from os.path import isfile, join
+
+parser = argparse.ArgumentParser(description='Cartoonifier')
+parser.add_argument('-e', '--edge', type=int, default=3, required=False,
+                    help='Edge width')
+parser.add_argument('-t', '--threshold', type=int, default=10, required=False,
+                    help='Threshold for edge filter')
+args = parser.parse_args()
 
 
 TEST_DIR = 'tests'
@@ -14,7 +22,6 @@ color_pallete = []
 
 
 class SobelFilter(object):
-    threshold = 10
     g_x = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
     g_y = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
 
@@ -50,16 +57,29 @@ class SobelFilter(object):
                     kernel_pixels.append(line)
 
                 new_pixel = self.__apply_kernel(kernel_pixels)
+                if new_pixel >= args.threshold:
+                    new_pixel = 255
+                else:
+                    new_pixel = 0
                 new_image.putpixel((i, j), (new_pixel, new_pixel, new_pixel))
 
         return new_image
 
 
-def combine_images(background, overlay):
-    background = background.convert("RGBA")
-    overlay = overlay.convert("RGBA")
+def overlay_images(edges, image):
+    new_image = Image.new("RGB", image.size, "white")
+    for i in range(image.size[0]):
+        for j in range(image.size[1]):
+            edge_pixel = edges.getpixel((i, j))
+            img_pixel = image.getpixel((i, j))
 
-    return Image.blend(background, overlay, 0.3)
+            new_pixel = img_pixel
+            if edge_pixel[0] == 255:
+                new_pixel = (0, 0, 0)
+
+            new_image.putpixel((i, j), new_pixel)
+
+    return new_image
 
 
 def get_distance(pixel1, pixel2):
@@ -144,6 +164,24 @@ def segmentation_reduce(image):
     return image
 
 
+def zoom_edges(image):
+    for i in range(image.size[0]):
+        for j in range(image.size[1]):
+            pixel = image.getpixel((i, j))
+            if pixel[0] == 255:
+                for k in range(i, i - args.edge, -1):
+                    if k < 0:
+                        break
+                    image.putpixel((k, j), (255, 255, 255))
+
+                for k in range(j, j - args.edge, -1):
+                    if k < 0:
+                        break
+                    image.putpixel((i, k), (255, 255, 255))
+
+    return image
+
+
 def main():
     get_intervals()
     print(len(color_pallete))
@@ -160,22 +198,24 @@ def main():
         image = Image.open(join(TEST_DIR, file_name))  # Can be many different formats.
 
         # apply the Sobel filter
-        new_image = SobelFilter(image).apply_filter()
+        edges = SobelFilter(image).apply_filter()
+        edges.save('/'.join([OUTPUT_DIR, 'edges_' + file_name]))
+
+        edges = zoom_edges(edges)
+        edges.save('/'.join([OUTPUT_DIR, 'zoomed_edges_' + file_name]))
 
         # combine the edge image and the original one
-        combined = combine_images(new_image, image)
-
-        enhancer = ImageEnhance.Brightness(combined)
-        enhanced_im = enhancer.enhance(3)
+        combined = overlay_images(edges, image)
+        combined.save('/'.join([OUTPUT_DIR, 'combined_' + file_name]))
 
         reduce = ''
         while reduce not in ('I', 'i', 'E', 'e'):
             reduce = input('Reduce color pallete (I/E): ')
 
         if reduce in ('I', 'i'):
-            image = interval_reduce(enhanced_im)
+            image = interval_reduce(combined)
         else:
-            image = segmentation_reduce(enhanced_im)
+            image = segmentation_reduce(combined)
 
         print('Done applying reduce')
         image.save('/'.join([OUTPUT_DIR, file_name]))
