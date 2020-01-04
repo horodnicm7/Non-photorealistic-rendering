@@ -12,6 +12,8 @@ Alti parametrii:
     -t -> threshold-ul folosit in binarizarea edge-urilor. Pixelii cu valori >= t, vor fi albi
     -p -> in implementarea reducerii cu intervale, am stabilit o paleta de culori pe care dupa le voi utiliza ca sa
         decid la care se reduce un anumit pixel. Pentru fiecare pixel, se va alege cea mai apropiata culoare din paleta
-        calculata in functie de p, in functie de minimul returnat de distanta euclidiana dintre cele 2 culori.
+        calculata in functie de p, in functie de minimul returnat de distanta euclidiana dintre cele 2 culori. De 
+		exemplu, daca acest parametru este p = 50, atunci culorile cu r = 0, g = 0, b din [0, 50] vor fi reduse la 
+		RGB = (0, 0, 25)
     -d -> distanta euclidiana maxima pentru care 2 pixeli pot fi considerati din aceasi gama de culori. Acest parametru
         este folosit in algoritmul de segmentare prin extindere.
